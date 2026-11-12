@@ -1,3 +1,5 @@
 -- Initial declarative schema lives in src/models; metadata.create_all creates missing tables.
+-- progress_checkpoints stores observation-time snapshots per frozen scenario; 
+-- rows are append-only except worker status/result/error fields on the same checkpoint.
 -- Work package input and dependency rows are frozen into immutable scenario version JSON.
 -- deadline uses DOUBLE, sample counts and seed use INTEGER; no production migration rollback.

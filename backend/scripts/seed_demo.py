@@ -1,8 +1,9 @@
 import json
 from sqlalchemy import select,func
 from src.config.database import Base,engine,Session
-from src.models import User,WorkPackage,TaskDependency,DurationScenario,ScheduleRun,DeliveryReview,Report
+from src.models import User,WorkPackage,TaskDependency,DurationScenario,ScheduleRun,DeliveryReview,Report,ProgressCheckpoint
 from src.services.analysis import analyze
+from src.services.progress import analyze as analyze_progress
 from src.utils.security import hash_password
 from src.utils.time import now
 from src.utils.serialization import serialize
@@ -26,5 +27,13 @@ def seed():
   if not db.get(ScheduleRun,'demo-run'):db.add(ScheduleRun(id='demo-run',scenario_id='demo-scenario',status='completed',result=analyze(db.get(DurationScenario,'demo-scenario').snapshot,db.get(DurationScenario,'demo-scenario')),error='',created_at=now()));db.flush()
   if not db.get(DeliveryReview,'demo-review'):db.add(DeliveryReview(id='demo-review',run_id='demo-run',version=1,note='已核对FS依赖与基线时差，模拟每次重算关键度；独立工期未涵盖共享资源、天气共因，32小时达标比例不是交付保证。',decision='accepted',author='analyst@duochuan.demo',created_at=now()));db.flush()
   if not db.get(Report,'demo-report'):db.add(Report(id='demo-report',run_id='demo-run',review_id='demo-review',title='铎川通道加固·基线与风险复核',published_by='admin@duochuan.demo',created_at=now()))
-  db.commit();return {m.__tablename__:db.scalar(select(func.count()).select_from(m)) for m in (User,WorkPackage,TaskDependency,DurationScenario,ScheduleRun,DeliveryReview,Report)}
+  db.flush()
+  if not db.get(ProgressCheckpoint,'demo-checkpoint'):
+   completed=[('T01',0.,2.),('T02',0.,3.),('T03',0.,2.),('T04',0.,1.)]
+   in_progress=[('T05',2.),('T06',3.),('T07',3.),('T08',4.5)]
+   progress=[{'task_id':tid,'status':'completed','actual_start':start,'actual_finish':finish} for tid,start,finish in completed]+[{'task_id':tid,'status':'in_progress','actual_start':start,'actual_finish':None} for tid,start in in_progress]
+   progress+= [{'task_id':f'T{i:02}','status':'not_started','actual_start':None,'actual_finish':None} for i in range(9,25)]
+   scenario=db.get(DurationScenario,'demo-scenario')
+   db.add(ProgressCheckpoint(id='demo-checkpoint',scenario_id='demo-scenario',sequence=1,observation_time=6.,progress=progress,snapshot=scenario.snapshot,status='completed',result=analyze_progress(scenario.snapshot,progress,6.,scenario.samples,scenario.seed,scenario.deadline),error='',correction_of=None,note='09:20现场进度：T01-T04已完成，T05-T08在途，其余等待前置；冻结情景与三点工期不变。',author='analyst@duochuan.demo',created_at=now()))
+  db.commit();return {m.__tablename__:db.scalar(select(func.count()).select_from(m)) for m in (User,WorkPackage,TaskDependency,DurationScenario,ScheduleRun,DeliveryReview,Report,ProgressCheckpoint)}
 if __name__=='__main__':print(json.dumps(seed(),ensure_ascii=False))

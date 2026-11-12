@@ -6,3 +6,4 @@ from .scenario import DurationScenario
 from .run import ScheduleRun
 from .review import DeliveryReview
 from .report import Report
+from .checkpoint import ProgressCheckpoint
